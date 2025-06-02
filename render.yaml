@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: leaderboard-service
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: OUTLINE_API_KEY
+        sync: false
+      - key: OUTLINE_DOCUMENT_ID
+        sync: false
