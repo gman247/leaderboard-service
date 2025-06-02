@@ -19,6 +19,7 @@ def fetch_current_markdown():
         f"{OUTLINE_API_URL}/documents.info",
         json={"id": DOCUMENT_ID},
         headers=HEADERS
+        verify=False,
     )
     response.raise_for_status()
     return response.json()["data"]["text"]
@@ -28,6 +29,7 @@ def update_markdown(text):
         f"{OUTLINE_API_URL}/documents.update",
         json={"id": DOCUMENT_ID, "text": text},
         headers=HEADERS
+        verify=False,
     )
     response.raise_for_status()
     return response.json()
