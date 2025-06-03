@@ -126,7 +126,7 @@ Updates document content with various operation types.
 
 ### 4. Update Table
 
-Adds a row to a markdown table or creates a new table if none exists.
+Adds a row to a markdown table or creates a new table if none exists. Optionally sorts the table by a specified column.
 
 ```json
 {
@@ -138,7 +138,9 @@ Adds a row to a markdown table or creates a new table if none exists.
     "Column1": "Value1",
     "Column2": "Value2",
     "Column3": "Value3"
-  }
+  },
+  "sort_by": "Column2",
+  "sort_order": "desc"
 }
 ```
 
@@ -147,6 +149,12 @@ Adds a row to a markdown table or creates a new table if none exists.
 - If tables exist: Finds a table with matching column names and adds the row
 - If no matching table: Returns "Column mismatch" error
 - Multiple tables: Automatically finds the correct table based on column names
+
+**Sorting Options:**
+- `sort_by` (optional): Column name to sort by
+- `sort_order` (optional): "asc" (ascending) or "desc" (descending), defaults to "asc"
+- Smart sorting: Automatically detects numeric vs text values
+- Empty rows are kept at the bottom after sorting
 
 **Response:**
 ```json
@@ -232,6 +240,29 @@ The API returns appropriate HTTP status codes and error messages:
   }
 }
 ```
+
+### Creating a Sorted Leaderboard
+
+Add entries to a leaderboard table and sort by score in descending order:
+
+```json
+{
+  "operation": "update_table",
+  "api_key": "your_api_key",
+  "email": "user@example.com",
+  "document_id": "leaderboard_doc_id",
+  "sort_by": "Score",
+  "sort_order": "desc",
+  "table_data": {
+    "Name": "Alice Johnson",
+    "Score": "95",
+    "Date": "2025-06-03",
+    "Notes": "Excellent performance on all metrics."
+  }
+}
+```
+
+This will add Alice's entry and automatically sort the entire table by Score in descending order, keeping the highest scores at the top.
 
 ### Content Updates
 
