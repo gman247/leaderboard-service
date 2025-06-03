@@ -88,6 +88,10 @@ class PageRequestSchema(Schema):
     
     # Optional SSL verification disable for self-hosted instances
     verify_ssl = fields.Bool(required=False, missing=True)
+    
+    # Optional table sorting fields
+    sort_by = fields.Str(required=False)
+    sort_order = fields.Str(required=False, validate=lambda x: x in ['asc', 'desc'], missing='asc')
 
 def validate_request(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate request data based on operation type"""
@@ -123,6 +127,12 @@ def validate_request(data: Dict[str, Any]) -> Dict[str, Any]:
                 raise ValueError("update_table operation requires table_data")
             if not isinstance(result.get('table_data'), dict):
                 raise ValueError("table_data must be a dictionary")
+            
+            # Validate sort_by field if provided
+            if result.get('sort_by') and not isinstance(result.get('sort_by'), str):
+                raise ValueError("sort_by must be a string")
+            if result.get('sort_order') and result.get('sort_order') not in ['asc', 'desc']:
+                raise ValueError("sort_order must be 'asc' or 'desc'")
     
     return result
 
@@ -186,6 +196,42 @@ def generate_markdown_table(headers: List[str], rows: List[List[str]]) -> str:
         data_rows.append("| " + " | ".join(padded_row[:len(headers)]) + " |")
     
     return "\n".join([header_row, separator_row] + data_rows)
+
+def sort_table_rows(headers: List[str], rows: List[List[str]], sort_by: str, sort_order: str = 'asc') -> List[List[str]]:
+    """
+    Sort table rows by a specified column.
+    Returns sorted rows or original rows if sort_by column not found.
+    """
+    if not sort_by or sort_by not in headers:
+        return rows
+    
+    try:
+        sort_column_index = headers.index(sort_by)
+        
+        def sort_key(row):
+            if len(row) <= sort_column_index:
+                return ""
+            value = row[sort_column_index]
+            
+            # Try to convert to number for numeric sorting
+            try:
+                return float(value)
+            except (ValueError, TypeError):
+                # If not numeric, sort as string (case insensitive)
+                return str(value).lower()
+        
+        # Sort rows, excluding empty rows
+        non_empty_rows = [row for row in rows if any(cell.strip() for cell in row)]
+        empty_rows = [row for row in rows if not any(cell.strip() for cell in row)]
+        
+        sorted_rows = sorted(non_empty_rows, key=sort_key, reverse=(sort_order == 'desc'))
+        
+        # Return sorted non-empty rows + empty rows at the end
+        return sorted_rows + empty_rows
+        
+    except (ValueError, IndexError):
+        # If sorting fails, return original rows
+        return rows
 
 def find_matching_table(tables: List[Tuple[List[str], List[List[str]], int, int]], 
                        target_columns: List[str]) -> Tuple[int, Tuple[List[str], List[List[str]], int, int], List[str]]:
@@ -284,6 +330,8 @@ def handle_page_operation():
             
             # Extract column names and values from table_data
             column_names = list(table_data.keys())
+            sort_by = validated_data.get('sort_by')
+            sort_order = validated_data.get('sort_order', 'asc')
             
             # Parse existing tables
             tables = parse_markdown_tables(current_content)
@@ -302,11 +350,20 @@ def handle_page_operation():
                 
                 headers, rows, start_pos, end_pos = matching_table
                 
+                # Validate sort_by column exists if provided
+                if sort_by and sort_by not in headers:
+                    return jsonify({"error": f"sort_by column '{sort_by}' not found in table columns: {headers}"}), 400
+                
                 # Order the new row values according to the existing table's column order
                 new_row_values = [str(table_data[col]) for col in table_column_order]
                 
                 # Add new row to existing table
                 updated_rows = rows + [new_row_values]
+                
+                # Sort the table if sort_by is specified
+                if sort_by:
+                    updated_rows = sort_table_rows(headers, updated_rows, sort_by, sort_order)
+                
                 updated_table = generate_markdown_table(headers, updated_rows)
                 
                 # Replace the table in content
