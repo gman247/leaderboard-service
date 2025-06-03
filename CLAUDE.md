@@ -8,48 +8,51 @@ This is a Flask API service that acts as a proxy to the Outline API, providing e
 
 ## Architecture
 
-- **Flask API** with a unified `/api/pages` endpoint for all operations
-- **OutlineClient** class handles communication with Outline's API
-- **Stateless authentication** - users provide their Outline API key with each request
-- **Read-Process-Write workflow** for update operations that need to modify existing content
+- **Single-file Flask application** (`app.py`) with all core logic
+- **OutlineClient** class (in `app.py`) handles HTTP communication with Outline's REST API
+- **Marshmallow validation** for request data with operation-specific field requirements
+- **Unified endpoint pattern** - single `/api/pages` POST endpoint handles all CRUD operations via `operation` field
+- **Stateless design** - no session management, users provide API key per request
+- **Read-Process-Write workflow** for updates that modify existing content
+- **OpenAPI specification** generated dynamically in `openapi.py` for ChatGPT integration
 
 ## Development Commands
 
 - `python -m venv venv` - Create virtual environment
 - `source venv/bin/activate` (macOS/Linux) - Activate virtual environment  
 - `pip install -r requirements.txt` - Install dependencies
-- `python run.py` - Start development server on port 5000
-- `python app.py` - Alternative way to start the server
+- `python run.py` - Start development server with environment variable support
+- `python app.py` - Direct Flask app start (debug mode on port 5000)
 
-## API Endpoints
+## Core Components
 
-- `POST /api/pages` - Unified endpoint for create/read/update operations
-- `GET /health` - Health check
-- `GET /openapi.json` - OpenAPI specification for ChatGPT integration
-- `GET /` - API information and available endpoints
+### Request Validation (`validate_request` function)
+- Uses Marshmallow schema for type validation
+- Operation-specific field validation (create needs collection_id/title/content, update needs document_id/update_type/content)
+- Special handling for find_replace operations requiring both `find` and `content` fields
 
-## Key Features
+### OutlineClient Class
+- Manages Outline API authentication headers
+- Three main methods: `get_document()`, `create_document()`, `update_document()`
+- Uses Outline's POST-based API endpoints (not REST-style GET/PUT)
 
-- **Create**: New pages in specified collections
-- **Read**: Retrieve existing page content
-- **Update Types**: 
-  - `append` - Add content to end of page
-  - `prepend` - Add content to beginning of page  
-  - `replace` - Replace entire page content
-  - `find_replace` - Find and replace specific text
+### Update Operations Processing
+- Read current document content first
+- Apply transformation based on `update_type`:
+  - `append`: concatenate new content to end
+  - `prepend`: add new content to beginning  
+  - `replace`: completely replace content
+  - `find_replace`: string replacement operation
+- Write back the processed content
 
-## Request Authentication
+## Environment Configuration
 
-All requests require:
-- `api_key` - User's Outline API key
-- `email` - User's email address
+The service supports environment variables via `run.py`:
+- `PORT` - Server port (default: 5000)
+- `FLASK_DEBUG` - Debug mode (default: True)
 
-## Testing
+## Deployment
 
-The service can be tested with curl or any HTTP client:
-
-```bash
-curl -X POST http://localhost:5000/api/pages \
-  -H "Content-Type: application/json" \
-  -d '{"operation": "read", "document_id": "uuid-here", "api_key": "key", "email": "user@example.com"}'
-```
+Configured for Render.com deployment via `render.yaml`:
+- Python environment with pip install build step
+- Expects `OUTLINE_API_KEY` and `OUTLINE_DOCUMENT_ID` environment variables
