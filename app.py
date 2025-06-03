@@ -10,9 +10,10 @@ app = Flask(__name__)
 CORS(app)
 
 class OutlineClient:
-    def __init__(self, api_key: str, base_url: str = "https://app.getoutline.com"):
+    def __init__(self, api_key: str, base_url: str = "https://app.getoutline.com", verify_ssl: bool = True):
         self.api_key = api_key
         self.base_url = base_url
+        self.verify_ssl = verify_ssl
         self.headers = {
             'Authorization': f'Bearer {api_key}',
             'Content-Type': 'application/json'
@@ -23,7 +24,8 @@ class OutlineClient:
         response = requests.post(
             f"{self.base_url}/api/documents.info",
             headers=self.headers,
-            json={"id": document_id}
+            json={"id": document_id},
+            verify=self.verify_ssl
         )
         response.raise_for_status()
         return response.json()
@@ -38,7 +40,8 @@ class OutlineClient:
                 "text": text,
                 "collectionId": collection_id,
                 "publish": publish
-            }
+            },
+            verify=self.verify_ssl
         )
         response.raise_for_status()
         return response.json()
@@ -54,7 +57,8 @@ class OutlineClient:
         response = requests.post(
             f"{self.base_url}/api/documents.update",
             headers=self.headers,
-            json=payload
+            json=payload,
+            verify=self.verify_ssl
         )
         response.raise_for_status()
         return response.json()
@@ -81,6 +85,9 @@ class PageRequestSchema(Schema):
     
     # Optional custom Outline server URL
     outline_url = fields.Str(required=False)
+    
+    # Optional SSL verification disable for self-hosted instances
+    verify_ssl = fields.Bool(required=False, missing=True)
 
 def validate_request(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate request data based on operation type"""
@@ -204,7 +211,8 @@ def handle_page_operation():
         
         # Initialize Outline client with custom URL if provided
         outline_url = validated_data.get('outline_url', 'https://app.getoutline.com')
-        outline = OutlineClient(validated_data['api_key'], base_url=outline_url)
+        verify_ssl = validated_data.get('verify_ssl', True)
+        outline = OutlineClient(validated_data['api_key'], base_url=outline_url, verify_ssl=verify_ssl)
         
         operation = validated_data['operation']
         
