@@ -188,15 +188,15 @@ def generate_markdown_table(headers: List[str], rows: List[List[str]]) -> str:
     return "\n".join([header_row, separator_row] + data_rows)
 
 def find_matching_table(tables: List[Tuple[List[str], List[List[str]], int, int]], 
-                       target_columns: List[str]) -> Tuple[int, Tuple[List[str], List[List[str]], int, int]]:
+                       target_columns: List[str]) -> Tuple[int, Tuple[List[str], List[List[str]], int, int], List[str]]:
     """
-    Find table with matching column names.
-    Returns (index, table_data) or (-1, None) if not found.
+    Find table with matching column names and return the correct column order.
+    Returns (index, table_data, ordered_columns) or (-1, None, None) if not found.
     """
     for i, (headers, rows, start_pos, end_pos) in enumerate(tables):
         if set(headers) == set(target_columns):
-            return i, (headers, rows, start_pos, end_pos)
-    return -1, None
+            return i, (headers, rows, start_pos, end_pos), headers
+    return -1, None, None
 
 @app.route('/api/pages', methods=['POST'])
 def handle_page_operation():
@@ -284,23 +284,26 @@ def handle_page_operation():
             
             # Extract column names and values from table_data
             column_names = list(table_data.keys())
-            new_row_values = [str(table_data[col]) for col in column_names]
             
             # Parse existing tables
             tables = parse_markdown_tables(current_content)
             
             if not tables:
                 # No tables exist, create new table
+                new_row_values = [str(table_data[col]) for col in column_names]
                 new_table = generate_markdown_table(column_names, [new_row_values])
                 processed_content = current_content + "\n\n" + new_table
             else:
                 # Find table with matching columns
-                table_index, matching_table = find_matching_table(tables, column_names)
+                table_index, matching_table, table_column_order = find_matching_table(tables, column_names)
                 
                 if matching_table is None:
                     return jsonify({"error": "Column mismatch"}), 400
                 
                 headers, rows, start_pos, end_pos = matching_table
+                
+                # Order the new row values according to the existing table's column order
+                new_row_values = [str(table_data[col]) for col in table_column_order]
                 
                 # Add new row to existing table
                 updated_rows = rows + [new_row_values]
