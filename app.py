@@ -78,6 +78,9 @@ class PageRequestSchema(Schema):
     
     # Update table operation fields
     table_data = fields.Dict(required=False)
+    
+    # Optional custom Outline server URL
+    outline_url = fields.Str(required=False)
 
 def validate_request(data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate request data based on operation type"""
@@ -199,8 +202,9 @@ def handle_page_operation():
         # Validate request
         validated_data = validate_request(data)
         
-        # Initialize Outline client
-        outline = OutlineClient(validated_data['api_key'])
+        # Initialize Outline client with custom URL if provided
+        outline_url = validated_data.get('outline_url', 'https://app.getoutline.com')
+        outline = OutlineClient(validated_data['api_key'], base_url=outline_url)
         
         operation = validated_data['operation']
         
